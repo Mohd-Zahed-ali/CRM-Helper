@@ -1,0 +1,118 @@
+ internal class CRMHelper
+    {
+
+        public static string CRM_MODULE = "{0}/crmservices/";
+
+        
+        public static string Login()
+        {
+            //1. Gathering login credentials..
+            //hide for testing 'string accesstoken'
+            // string accesstoken = LoginAPICRM();
+            var username = ConfigurationManager.AppSettings["username"];
+            var password = ConfigurationManager.AppSettings["password"];
+            var companycode = ConfigurationManager.AppSettings["companyCode"];
+            var clientkey = ConfigurationManager.AppSettings["clientId"];
+            var clientsecret = ConfigurationManager.AppSettings["clientsecret"];
+            var serverport = ConfigurationManager.AppSettings["CRMServer"];
+            var client = new HttpClient();
+            string sUrl = string.Format(serverport + "/crmservices/rest/oauth/authorize" + "?grant_type=password" + "&username=" + username + "&password=" + password + "&companycode=" + companycode + "&client_id=" + clientkey + "&client_secret=" + clientsecret);
+
+            sUrl = sUrl.Replace(System.Environment.NewLine, "");
+            Log.info($"CRM API Access token Url : {sUrl}");
+            //2. Making an api call..
+
+            var request = new HttpRequestMessage()
+            {
+                RequestUri = new Uri(sUrl),
+                Method = HttpMethod.Get
+            };
+
+            request.Headers.Add("Accept", "application/json");
+            //request.Headers.Add("access_token",);
+
+            /*MainPartOfConsumingAPI*/
+            var response = client.SendAsync(request).Result;
+
+            var accessToken = "";
+
+            //3. Checking whether the request is went success..
+            if (response.IsSuccessStatusCode)
+            {
+                //4 Converting response object to string (To be read easily..)
+                var sResponse = response.Content.ReadAsStringAsync().Result;
+                Log.info("login response:" + sResponse);
+                // 5. Deserialization..
+
+                var objResponse = JsonConvert.DeserializeObject<LoginResponse>(sResponse);
+
+                if (objResponse.status == "1")
+                {
+                    accessToken = objResponse.accessToken;
+                }
+            }
+            Log.info($"CRM API Access token Url : {accessToken}");
+            return accessToken;
+        }
+        public static void Logout(string AccessToken)
+        {
+            var client = new HttpClient();
+            string sUrl = string.Format("http://localhost:8080/ crmservices/rest/oauth/logout");
+            sUrl = sUrl.Replace(System.Environment.NewLine, "");
+
+            //2. Making an api call..
+
+            var request = new HttpRequestMessage()
+            {
+                RequestUri = new Uri(sUrl),
+                Method = HttpMethod.Get
+            };
+
+            request.Headers.Add("Accept", "application/json");
+            request.Headers.Add("access_token", AccessToken);
+
+            var response = client.SendAsync(request).Result;
+        }
+        public static HttpResponseMessage GetRequest(string access_token, string sUrl)
+        {
+            sUrl = sUrl.Replace(System.Environment.NewLine, "");
+            var client = new HttpClient();
+            var request = new HttpRequestMessage()
+            {
+                RequestUri = new Uri(sUrl),
+                Method = HttpMethod.Get
+            };
+            request.Headers.Add("Accept", "application/json");
+            request.Headers.Add("access_token", access_token);
+
+            var resp = client.SendAsync(request).Result;
+            return resp;
+        }
+        public static HttpResponseMessage PostRequest(string access_token, string sUrl, HttpContent content)
+        {
+            sUrl = sUrl.Replace(System.Environment.NewLine, "");
+            using (var client = new HttpClient())
+            {
+                var request = new HttpRequestMessage()
+                {
+                    RequestUri = new Uri(sUrl),
+                    Method = HttpMethod.Post,
+                    Content = content
+                };
+                request.Headers.Add("Accept", "application/json");
+                request.Headers.Add("access_token", access_token);
+                var resp = new HttpResponseMessage();
+                resp = client.SendAsync(request).Result;
+                return resp;
+            }
+
+        }
+        public class LoginResponse
+        {
+            public string status { get; set; }
+            public string userId { get; set; }
+            public string refreshToken { get; set; }
+            public string accessToken { get; set; }
+        }
+
+    }
